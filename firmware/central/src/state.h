@@ -17,6 +17,7 @@ namespace mechmania {
         uint16_t axii[4] = {0,0,0,0}; // axisX, axisY, axisRX, axisRY
     };
 
-    extern RobotState* rState;
 }
+
+extern mechmania::RobotState* rState;
 #endif

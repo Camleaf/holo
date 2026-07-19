@@ -2,6 +2,8 @@
 #include <Wire.h>
 #include "./orientationprovider.h"
 
+using namespace mechmania;
+
 void OrientationProvider::setYaw(float yaw){
     this->yaw = yaw;
 }
@@ -11,8 +13,8 @@ GyroMPU6050::GyroMPU6050(){
 
 }
 
-void GyroMPU6050::begin(){
-    Wire.begin(21,22);
+void GyroMPU6050::begin(int SDA, int SCL){
+    Wire.begin(SDA,SCL);
     delay(500);
     Wire.beginTransmission(0x68);
     Wire.write(0x6B); 

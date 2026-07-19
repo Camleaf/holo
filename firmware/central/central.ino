@@ -1,15 +1,14 @@
-/*
- * You need the Bluepad32 Arduino library installed
- */
 #include <Arduino.h>
 
-#include "ArduinoController.h"
+//#include "ArduinoController.h"
 #include "src/drivetrain.h"
 #include "src/state.h"
 #include "src/orientationprovider.h"
-#include <Bluepad32.h>
 #include <HardwareSerial.h>
 #include <cstdlib>
+#include <esp_now.h>
+#include <WiFi.h>
+
 
 //// drivetrain
 // Back right
@@ -29,116 +28,82 @@
 #define maxSpeed 140
 #define turnPower 140
 
-#define rx 32
-#define tx 33
-#define baud 9600 
 
-HardwareSerial uartConnection(2);
-RobotState* rState = new RobotState();
+const uint8_t controller_mac_address[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // replace with real mac address 
 
-OrientationProvider* orientStore = new GyroMPU6050(); // reserve the sda and scl pins. 21 SDA, 22 SCL
+mechmania::RobotState* rState = new mechmania::RobotState();
+
+mechmania::OrientationProvider* orientStore = new mechmania::GyroMPU6050(); // reserve the sda and scl pins. 21 SDA, 22 SCL
 // Only making one of these so should be fine to use new
-Drivetrain* drivetrain = new FieldMecanum(kbr1,kbr2,kbl1,kbl2,kfr1,kfr2,kfl1,kfl2,orientStore);
+mechmania::Drivetrain* drivetrain = new mechmania::HeadlessMecanum(kbr1,kbr2,kbl1,kbl2,kfr1,kfr2,kfl1,kfl2,orientStore);
 
+int optionsTimeout = 0;
+void process_commands(){
+    drivetrain->updateMotor(
+        rState->axii[MM_AXIS_X],
+        rState->axii[MM_AXIS_RX],
+        rState->axii[MM_AXIS_Y],
+        rState->axii[MM_AXIS_RY]
+    ); 
+                    
 
-ControllerPtr contr[BP32_MAX_CONTROLLERS];
-
-void onConnectedController(ControllerPtr cptr) {
-    if (!cptr) return;
-    for (int i = 0; i < BP32_MAX_CONTROLLERS; i++){
-        if (contr[i] == nullptr) {
-            contr[i] = cptr;
-            Serial.println("add successfull");
-            return;
-        }
+    if (millis() - optionsTimeout > 1000 && rState->misc_buttons & 0x04){ // Share button
+        orientStore->setYaw(0);
+        optionsTimeout = millis();
     }
 }
 
-void onDisconnectedController(ControllerPtr cptr) {   
-    if (!cptr) return;
-    for (int i = 0; i < BP32_MAX_CONTROLLERS; i++){
-        if (contr[i] == cptr) {
-            contr[i] = nullptr;
-            drivetrain->updateMotor(0, 0, 0, 0);
-            return;
-        }
-    }
+
+bool update = false;
+void recieve_data(const esp_now_recv_info* mac, const unsigned char* inc, int len){
     
-}
-
-uint32_t optionsTimeout;
-void processControllers(){
-    for (auto cptr: contr) {
-        if (!cptr) continue;
-
-        if (cptr->isConnected() && cptr->hasData()){
-            if (cptr->isGamepad()){
-                
-                drivetrain->updateMotor(
-                    cptr->axisX(),
-                    cptr->axisRX(),
-                    -cptr->axisY(),
-                    cptr->axisRY()
-                ); 
-                  
-                rState->buttons = cptr->buttons();
-                rState->dpad = cptr->dpad();
-
-                if (millis() - optionsTimeout > 1000 && cptr->miscSelect()){
-                  orientStore->setYaw(0);
-                  optionsTimeout = millis();
-                }
-            }
-        }
-
-
-        
-
+    // check equality
+    if (memcmp(mac->src_addr,controller_mac_address,6)){
+      return;
     }
-}
 
-uint32_t msgInterval = 0;
-void msgCoproc(){
-    if (millis()-msgInterval > 250) {
-        int data = rState->getInt();
-        uartConnection.write((uint8_t*)&data, sizeof(data));
-        msgInterval = millis();
-    }
+    memcpy(&rState, inc, sizeof(*rState));
 }
 
 void setup(){
-    for (int i = 0; i < BP32_MAX_CONTROLLERS; i++) {
-      contr[i] = nullptr;
-    }
+
     Serial.begin(115200);
-    uartConnection.begin(baud,SERIAL_8N1,rx,tx);
-    
-    orientStore->begin();
+     
+    orientStore->begin(21,22);
     delay(100);
     orientStore->generate_tuned_values();
 
-    BP32.setup(
-            onConnectedController,
-            onDisconnectedController
-        );
-  
-     
+
+    optionsTimeout = millis(); 
     drivetrain->setMaxSpeed(maxSpeed);
     drivetrain->setTurnPower(turnPower); 
 
     drivetrain->invertMotor(0,true);
     drivetrain->invertMotor(3,true);
  
-    optionsTimeout = millis();
     delay(500);
+
+
+    // Set device as a Wi-Fi Station
+    WiFi.mode(WIFI_STA);
+
+    // Initialize ESP-NOW
+    if (esp_now_init() != ESP_OK) {
+      Serial.println("Error initializing ESP-NOW");
+      return;
+    }
+    
+    //recieve callback
+    esp_now_register_recv_cb(recieve_data);
 }
 
 
 void loop(){
-    msgCoproc();
+    //msgCoproc();
     orientStore->fetch_data(esp_timer_get_time());
-    if (BP32.update()){
-        processControllers();
+    if (update){
+        process_commands();
+        update = false;
     }
 
     delay(5);

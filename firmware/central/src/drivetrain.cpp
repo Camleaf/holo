@@ -4,8 +4,8 @@
 #include "driver/mcpwm.h"
 #include "orientationprovider.h"
 
-using namespace std;
 
+using namespace mechmania;
 
 // Channel defines
 // back right
@@ -92,6 +92,7 @@ Drivetrain::Drivetrain(uint8_t kbr1, uint8_t kbr2, uint8_t kbl1, uint8_t kbl2, u
 
 void Drivetrain::invertMotor(int motor, bool inverted){
     if (motor < 0 || motor >= 4){
+
         Serial.println("Tried to invert motor greater than possible");
         return;
     }
@@ -150,14 +151,14 @@ void Mecanum::updateMotor(int joyX, int joyX2, int joyY, int joyY2){
 // Field-Oriented Mecanum
 /////////////////////////
 
-FieldMecanum::FieldMecanum(uint8_t kbr1, uint8_t kbr2, uint8_t kbl1, uint8_t kbl2, 
+HeadlessMecanum::HeadlessMecanum(uint8_t kbr1, uint8_t kbr2, uint8_t kbl1, uint8_t kbl2, 
         uint8_t kfr1, uint8_t kfr2, uint8_t kfl1, uint8_t kfl2, OrientationProvider* orientProvider, int deadzone)
     : Drivetrain(kbr1, kbr2, kbl1, kbl2, kfr1, kfr2, kfl1, kfl2, deadzone){
     this->orientProvider = orientProvider;
 }
 
 
-void FieldMecanum::updateMotor(int joyX, int joyX2, int joyY, int joyY2){
+void HeadlessMecanum::updateMotor(int joyX, int joyX2, int joyY, int joyY2){
     
     // Great source for mecanum drive
     //https://gm0.org/en/latest/docs/software/tutorials/mecanum-drive.html

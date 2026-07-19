@@ -14,7 +14,7 @@ namespace mechmania {
         uint32_t buttons = 0;
         uint8_t dpad = 0;
         uint8_t misc_buttons;
-        uint16_t axii[4] = {0,0,0,0}; // axisX, axisY, axisRX, axisRY
+        uint16_t axii[4] = {0,0,0,0};
     };
 }
 

@@ -14,3 +14,16 @@ export PATH="$VCPKG_ROOT:$PATH"
 
 ```
 
+
+### WSL setup
+
+To get controller to register on WSL
+
+Run powershell as administrator
+```bash
+usbipd list # then find the controller
+usbipd bind --busid <busid> # busid is labelled on the `list` section
+usbipd attach --wsl --busid <busid>
+```
+
+Then script must be run using `sudo` permissions to actually get access to the controller.

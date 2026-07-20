@@ -4,7 +4,7 @@ set(project_name "ds4-esp-wifi-link")
 
 # project definition
 project(${project_name} 
-    VERSION 0.0.4 
+    VERSION 0.0.1 
     LANGUAGES CXX
 )
 

@@ -3,29 +3,64 @@
 #include <SDL3/SDL.h>
 #include <iostream>
 #include <state.h>
+#include <iostream>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
 SDL_Gamepad* gamepad = nullptr;
 mechmania::ControllerState* cState = new mechmania::ControllerState(); 
 
+using bt = mechmania::buttons;
+
 #define DEADZONE 8000
 #define DEBUG false
+#define PORT     8888
 
 long map_val(long x, long in_min, long in_max, long out_min, long out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 int main(int argc, char* argv[]) {
+
+    //setup sdl
     if (!SDL_Init(SDL_INIT_GAMEPAD)) {
         std::cerr << "Init failed:" << SDL_GetError() << std::endl;
         return 1;
     }
-   
+    
+
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS,"1");
     bool running = true;
+    
+    // setup netsocket
 
+    // Create UDP socket
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+        perror("socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+    
+    struct sockaddr_in servaddr;
+    memset(&servaddr, 0, sizeof(servaddr));
 
+    // Fill server address info
+    servaddr.sin_family = AF_INET;              // IPv4
+    servaddr.sin_port   = htons(PORT);          // Server port
+    servaddr.sin_addr.s_addr = inet_addr("192.168.x.x"); // Server IP
+     
+    
+
+    // run sdl mainloop
     SDL_Event event;
     while (running) {
+        // send over network
+        sendto(sockfd,(const char*)cState,sizeof(*cState),MSG_CONFIRM,
+                (const struct sockaddr *)&servaddr, sizeof(servaddr));
+
+        // handle events
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
                 case SDL_EVENT_QUIT:
@@ -45,16 +80,23 @@ int main(int argc, char* argv[]) {
                 case SDL_EVENT_GAMEPAD_REMOVED:
                     SDL_CloseGamepad(gamepad);
                     gamepad = nullptr;
+                    
+                    // Empty buttonState on disconnect
+                    for (int i = 0; i< std::size(cState->buttons);i++){
+                        cState->buttons[i] = false;
+                    }
+
                     std::cout << "gamepad disconnected" << std::endl;
 
 
                 case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
                     std::cout << "Button pressed: " << (int)event.gbutton.button << std::endl;
-                     
+                    cState->buttons[event.gbutton.button] = true; 
                     break;
                 
                 case SDL_EVENT_GAMEPAD_BUTTON_UP:
                     
+                    cState->buttons[event.gbutton.button] = false; 
                     break;
 
                 case SDL_EVENT_GAMEPAD_AXIS_MOTION:
@@ -77,6 +119,7 @@ int main(int argc, char* argv[]) {
                     break;
             }
         }
+
         SDL_Delay(20); //50hz polling loop so my pc dont explode
     }
 

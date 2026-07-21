@@ -1,12 +1,7 @@
-#ifndef CAMLEAF_COPROC
-#define CAMLEAF_COPROC
+#ifndef CAMLEAF_CSTATE
+#define CAMLEAF_CSTATE
 
 #include <cstdint>
-
-
-
-
-
 
 namespace mechmania {
     struct buttons {

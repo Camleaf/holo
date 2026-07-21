@@ -4,11 +4,9 @@
 #include "src/drivetrain.h"
 #include "src/state.h"
 #include "src/orientationprovider.h"
-#include <HardwareSerial.h>
 #include <cstdlib>
-#include <esp_now.h>
 #include <WiFi.h>
-
+#include <WiFiUdp.h>
 
 //// drivetrain
 // Back right
@@ -29,9 +27,16 @@
 #define turnPower 140
 
 
-const uint8_t controller_mac_address[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // replace with real mac address 
+// Wifi
+const char* ssid = "camleaf_device";
+const char* password = "";
 
-mechmania::RobotState* rState = new mechmania::RobotState();
+WiFiUDP udp;
+const int port = 8888;
+
+using bt = mechmania::buttons;
+
+mechmania::ControllerState* cState = new mechmania::ControllerState();
 
 mechmania::OrientationProvider* orientStore = new mechmania::GyroMPU6050(); // reserve the sda and scl pins. 21 SDA, 22 SCL
 // Only making one of these so should be fine to use new
@@ -40,40 +45,46 @@ mechmania::Drivetrain* drivetrain = new mechmania::HeadlessMecanum(kbr1,kbr2,kbl
 int optionsTimeout = 0;
 void process_commands(){
     drivetrain->updateMotor(
-        rState->axii[MM_AXIS_X],
-        rState->axii[MM_AXIS_RX],
-        rState->axii[MM_AXIS_Y],
-        rState->axii[MM_AXIS_RY]
+        cState->axii[bt::AXIS_X],
+        cState->axii[bt::AXIS_RX],
+        cState->axii[bt::AXIS_Y],
+        cState->axii[bt::AXIS_RY]
     ); 
                     
 
-    if (millis() - optionsTimeout > 1000 && rState->misc_buttons & 0x04){ // Share button
+    if (millis() - optionsTimeout > 1000 && cState->buttons[bt::SHARE]){ // Share button
         orientStore->setYaw(0);
         optionsTimeout = millis();
     }
 }
 
 
-bool update = false;
-void recieve_data(const esp_now_recv_info* mac, const unsigned char* inc, int len){
-    
-    // check equality
-    if (memcmp(mac->src_addr,controller_mac_address,6)){
-      return;
+
+bool check_for_packet(){
+    if (!udp.available()){
+        return false;
     }
 
-    memcpy(&rState, inc, sizeof(*rState));
+    int packetSize = udp.parsePacket();
+    if (packetSize != sizeof(*cState)) return false; // corrupted packet case
+    
+
+    udp.read((uint8_t*)&cState, sizeof(*cState));   
+    Serial.println(cState->axii[bt::AXIS_X]);
+    return true;
 }
+
+
 
 void setup(){
 
-    Serial.begin(115200);
-     
+    Serial.begin(115200); 
     orientStore->begin(21,22);
     delay(100);
     orientStore->generate_tuned_values();
-
-
+    
+   
+    // setup drivetrain
     optionsTimeout = millis(); 
     drivetrain->setMaxSpeed(maxSpeed);
     drivetrain->setTurnPower(turnPower); 
@@ -81,31 +92,25 @@ void setup(){
     drivetrain->invertMotor(0,true);
     drivetrain->invertMotor(3,true);
  
-    delay(500);
-
-
-    // Set device as a Wi-Fi Station
-    WiFi.mode(WIFI_STA);
-
-    // Initialize ESP-NOW
-    if (esp_now_init() != ESP_OK) {
-      Serial.println("Error initializing ESP-NOW");
-      return;
-    }
+    //start wifi
+    WiFi.softAP(ssid, password); 
+    Serial.println("Wifi ON");
+    Serial.print("ip: ");
+    Serial.println(WiFi.softAPIP());
     
-    //recieve callback
-    esp_now_register_recv_cb(recieve_data);
+    udp.begin(port);
+
+    
+    delay(500);
 }
 
 
 void loop(){
     //msgCoproc();
     orientStore->fetch_data(esp_timer_get_time());
-    if (update){
+    if (check_for_packet()){
         process_commands();
-        update = false;
     }
-
     delay(5);
 
 }

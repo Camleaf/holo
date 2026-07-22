@@ -45,7 +45,7 @@ mechmania::Drivetrain* drivetrain = new mechmania::HeadlessMecanum(kbr1,kbr2,kbl
 int optionsTimeout = 0;
 void process_commands(){
     drivetrain->updateMotor(
-        cState->axii[bt::AXIS_X],
+        -cState->axii[bt::AXIS_X],
         cState->axii[bt::AXIS_RX],
         cState->axii[bt::AXIS_Y],
         cState->axii[bt::AXIS_RY]

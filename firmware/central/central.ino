@@ -61,15 +61,13 @@ void process_commands(){
 
 
 bool check_for_packet(){
-    if (!udp.available()){
-        return false;
-    }
-
+ 
     int packetSize = udp.parsePacket();
-    if (packetSize != sizeof(*cState)) return false; // corrupted packet case
+    if (!packetSize) return false;
+    //if (packetSize != sizeof(*cState)) return false; // corrupted packet case
     
 
-    udp.read((uint8_t*)&cState, sizeof(*cState));   
+    udp.read((uint8_t*)cState, sizeof(*cState));   
     Serial.println(cState->axii[bt::AXIS_X]);
     return true;
 }

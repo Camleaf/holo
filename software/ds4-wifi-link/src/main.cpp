@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
     SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
     //setup sdl
 
-SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
+    SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
     if (!SDL_Init(SDL_INIT_GAMEPAD)) {
         std::cerr << "Init failed:" << SDL_GetError() << std::endl;
         return 1;
@@ -56,9 +56,10 @@ SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
     // Fill server address info
     servaddr.sin_family = AF_INET;              // IPv4
     servaddr.sin_port   = htons(PORT);          // Server port
-    servaddr.sin_addr.s_addr = inet_addr("192.168.4.1"); // Server IP
     std::cout << "start main" << std::endl;
-
+    if (inet_pton(AF_INET, "192.168.4.1", &servaddr.sin_addr) <= 0 ){
+        std::cerr << "invalid address" << std::endl;
+    }
     // run sdl mainloop
     SDL_Event event;
     while (running) {
@@ -115,10 +116,8 @@ SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
                         //map from signed 16 bit to signed 10 bit.
                         mapped_move_value = map_val(event.gaxis.value,-1UL<<15,(1UL>>15)-1,-1UL<<9,(1UL>>9)-1);
                         
-#if DEBUG
                         std::cout << "Axis " << (int)event.gaxis.axis;
                         std::cout << "moved: " << mapped_move_value << std::endl;
-#endif               
                     }
                     cState->axii[event.gaxis.axis] = mapped_move_value;
 

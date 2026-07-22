@@ -33,7 +33,7 @@ namespace mechmania {
 
     struct  [[gnu::packed]] ControllerState{
         bool buttons[15] = {0};
-        uint16_t axii[6] = {0};
+        int16_t axii[6] = {0};
     };
 }
 
